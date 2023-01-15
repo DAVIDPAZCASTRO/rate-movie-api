@@ -1,40 +1,44 @@
+require('dotenv').config()
+require('./mongo')
+
 const express = require('express')
-const logger = require('./loggerMiddleware')
-
 const app = express()
+const cors = require('cors')
+const logger = require('./loggerMiddleware')
+const Movie = require('./models/Movie')
 
+app.use(cors())
 app.use(express.json())
+
 app.use(logger)
 
 let movies = [
-  {
-    id: 0,
-    title: 'The Godfather',
-    description: 'The Godfather'
-  },
-  {
-    id: 1,
-    title: 'Titanic',
-    description: 'Titanic'
-  },
-  {
-    id: 2,
-    title: 'Toy story',
-    description: 'Toy story'
-  }
+  // {
+  //   id: 0,
+  //   title: 'The Godfather',
+  //   description: 'The Godfather'
+  // },
+  // {
+  //   id: 1,
+  //   title: 'Titanic',
+  //   description: 'Titanic'
+  // },
+  // {
+  //   id: 2,
+  //   title: 'Toy story',
+  //   description: 'Toy story'
+  // }
 ]
-
-// const app = http.createServer((request, response) => {
-//   response.writeHead(200, { 'Content-Type": "application/json" });
-//   response.end(JSON.stringify(movies));
-// });
 
 app.get('/', (request, response) => {
   response.send('<h1>LISTA DE PELÍCULAS</h1>')
 })
 
 app.get('/api/movies', (request, response) => {
-  response.json(movies)
+  Movie.find({}).then((movies) => {
+    const { _id, __v, ...restOfMovie } =
+    response.json(movies)
+  })
 })
 
 app.get('/api/movies/:id', (request, response) => {
@@ -79,7 +83,7 @@ app.use((request, response) => {
   })
 })
 
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
