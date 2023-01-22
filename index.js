@@ -4,51 +4,39 @@ require('./mongo')
 const express = require('express')
 const app = express()
 const cors = require('cors')
-const logger = require('./loggerMiddleware')
 const Movie = require('./models/Movie')
+const logger = require('./middleware/logger')
+const notFound = require('./middleware/notFound')
+const handleErrors = require('./middleware/handleErrors')
 
 app.use(cors())
 app.use(express.json())
 
 app.use(logger)
 
-let movies = [
-  // {
-  //   id: 0,
-  //   title: 'The Godfather',
-  //   description: 'The Godfather'
-  // },
-  // {
-  //   id: 1,
-  //   title: 'Titanic',
-  //   description: 'Titanic'
-  // },
-  // {
-  //   id: 2,
-  //   title: 'Toy story',
-  //   description: 'Toy story'
-  // }
-]
-
 app.get('/', (request, response) => {
   response.send('<h1>LISTA DE PELÍCULAS</h1>')
 })
 
 app.get('/api/movies', (request, response) => {
-  Movie.find({}).then((movies) => {
-    const { _id, __v, ...restOfMovie } =
+  Movie.find({}).then(movies => {
     response.json(movies)
   })
 })
 
-app.get('/api/movies/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const movie = movies.find((movie) => movie.id === id)
-  if (movie) {
-    response.json(movie)
-  } else {
-    response.status(404).end()
-  }
+app.get('/api/movies/:id', (request, response, next) => {
+  const id = request.params.id
+  Movie.findById(id)
+    .then(movie => {
+      if (movie) {
+        response.json(movie)
+      } else {
+        response.status(404).end()
+      }
+    })
+    .catch(error => {
+      next(error)
+    })
 })
 
 app.post('/api/movies', (request, response) => {
@@ -59,29 +47,47 @@ app.post('/api/movies', (request, response) => {
       error: 'movie.title is missing'
     })
   }
-
-  const ids = movies.map((movie) => movie.id)
-  const maxId = Math.max(...ids)
-  const newMovie = {
-    id: maxId + 1,
+  const newMovie = new Movie({
     title: movie.title,
     description: movie.description
-  }
-  movies = [...movies, newMovie]
-  response.status(201).json(newMovie)
-})
-
-app.delete('/api/movies/:id', (request, response) => {
-  const id = Number(request.params.id)
-  movies = movies.filter((movie) => movie.id !== id)
-  response.status(204).end()
-})
-
-app.use((request, response) => {
-  response.status(404).json({
-    error: 'Not found'
   })
+
+  newMovie.save()
+    .then((savedMovie) => {
+      response.status(201).json(savedMovie)
+    })
 })
+
+app.put('/api/movies/:id', (request, response, next) => {
+  const id = request.params.id
+  const movieInfo = request.body
+
+  const newMovieInfo = {
+    title: movieInfo.title,
+    description: movieInfo.description
+  }
+  Movie.findByIdAndUpdate(id, newMovieInfo, { new: true })
+    .then(movie => {
+      response.json(movie)
+    })
+    .catch(error => {
+      next(error)
+    })
+})
+
+app.delete('/api/movies/:id', (request, response, next) => {
+  const id = request.params.id
+  Movie.findByIdAndDelete(id)
+    .then(movie => {
+      response.status(204).end()
+    })
+    .catch(error => {
+      next(error)
+    })
+})
+
+app.use(notFound)
+app.use(handleErrors)
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
